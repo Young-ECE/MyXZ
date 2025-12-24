@@ -1,0 +1,13 @@
+idf_component_register(SRCS "main.cc"
+                        "application.cc"
+                        "display/display.cc"
+                        "protocols/protocol.cc"
+                        "protocols/websocket_protocol.cc"
+                        "audio/audio_codec.cc"
+                        "audio/esp32s3_audio_codec.cc"
+                        "utils/opus_wrapper.cc"
+                    INCLUDE_DIRS "."
+                                "audio"
+                                "display"
+                                "protocols"
+                                "utils")

@@ -1,0 +1,2 @@
+source /home/young/Desktop/xiaozhi/build/bootloader/gdbinit/symbols
+source /home/young/Desktop/xiaozhi/build/bootloader/gdbinit/connect
