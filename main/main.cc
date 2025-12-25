@@ -49,76 +49,35 @@ static QueueHandle_t audio_queue_ = nullptr;
 static Esp32S3AudioCodec* g_codec = nullptr;
 
 // 通过标准输出发送音频数据到上位机（Vofa+ FireWater格式）
-// FireWater格式：每行一个浮点数，逗号分隔（单通道），换行结尾
-// 例如：1.234\n 或 1.234,5.678\n（多通道）
+// 直接输出int16_t的原始值（不归一化），便于观察和调试
+// FireWater格式：每行一个数字，换行结尾
 // ESP-IDF会自动将stdout路由到USB Serial/JTAG（当仅连接USB口时）
 static void send_audio_to_host(const std::vector<int16_t>& audio_data) {
-    // 将PCM16数据转换为归一化浮点数（-1.0到1.0范围）
-    // 每个采样点发送一行，Vofa+可以直接读取和显示
-    for (int16_t sample : audio_data) {
-        // 归一化到-1.0到1.0范围（int16_t范围：-32768到32767）
-        float normalized = (float)sample / 32768.0f;
-        
-        // 使用printf发送FireWater格式（每行一个浮点数，换行结尾）
-        fprintf(stdout, "%.6f\n", normalized);
+    // 使用带索引的循环，i 每次增加 10 (i += 10)
+    // 这样就实现了每隔 10 个点取一个数据
+    for (size_t i = 0; i < audio_data.size(); i += 10) {
+        printf("%d\n", audio_data[i]);
     }
-    fflush(stdout); // 确保数据立即刷新到USB
 }
 
 // 发送任务：从队列中取出音频数据并发送到上位机
-static void send_task(void* arg) {
-    AudioPacket* packet = nullptr;
-    
+static void send_task(void *arg)
+{
+    AudioPacket *packet = nullptr;
+
     ESP_LOGI(TAG, "Audio send task started");
-    
-    static int frame_count = 0;
-    
-    while (1) {
+
+    while (1)
+    {
         // 从队列中获取音频数据（最多等待100ms）
-        if (xQueueReceive(audio_queue_, &packet, pdMS_TO_TICKS(100)) == pdTRUE) {
-            if (packet != nullptr) {
-                frame_count++;
-                
-                // 调试：每50帧打印一次数据包内容
-                if (frame_count % 50 == 0 && !packet->data.empty()) {
-                    ESP_LOGI(TAG, "=== Audio Packet Debug (Frame %d) ===", frame_count);
-                    ESP_LOGI(TAG, "Packet size: %zu samples", packet->data.size());
-                    // 打印前10个采样值
-                    ESP_LOGI(TAG, "First 10 samples: ");
-                    for (size_t i = 0; i < 10 && i < packet->data.size(); i++) {
-                        ESP_LOGI(TAG, "  [%zu]: %d (0x%04x)", i, packet->data[i], (unsigned short)packet->data[i]);
-                    }
-                    
-                    // 计算统计数据
-                    int16_t max_val = INT16_MIN, min_val = INT16_MAX;
-                    int64_t sum = 0, sum_sq = 0;
-                    for (int16_t sample : packet->data) {
-                        if (sample > max_val) max_val = sample;
-                        if (sample < min_val) min_val = sample;
-                        sum += sample;
-                        sum_sq += (int64_t)sample * sample;
-                    }
-                    float mean = (float)sum / packet->data.size();
-                    float rms = sqrtf((float)sum_sq / packet->data.size());
-                    ESP_LOGI(TAG, "Stats: min=%d, max=%d, mean=%.2f, RMS=%.2f", 
-                             min_val, max_val, mean, rms);
-                }
-                
+        if (xQueueReceive(audio_queue_, &packet, pdMS_TO_TICKS(100)) == pdTRUE)
+        {
+            if (packet != nullptr)
+            {
                 // 发送到上位机
-                // send_audio_to_host(packet->data);
-                
+                send_audio_to_host(packet->data);
                 // 释放内存
                 delete packet;
-                
-                // 统计信息（每秒打印一次）
-                static int64_t last_time = 0;
-                int64_t current_time = esp_timer_get_time() / 1000000; // 转换为秒
-                if (current_time - last_time >= 1) {
-                    ESP_LOGI(TAG, "Sent %d frames in last second, heap: %lu bytes", 
-                             frame_count, esp_get_free_heap_size());
-                    frame_count = 0;
-                    last_time = current_time;
-                }
             }
         }
     }
@@ -197,7 +156,7 @@ extern "C" void app_main(void) {
     
     // 创建音频数据队列（最多缓存10帧，每帧约30ms）
     // 队列存储AudioPacket*指针
-    audio_queue_ = xQueueCreate(20, sizeof(AudioPacket*));
+    audio_queue_ = xQueueCreate(4, sizeof(AudioPacket*));
     if (audio_queue_ == nullptr) {
         ESP_LOGE(TAG, "Failed to create audio queue");
         return;
@@ -231,7 +190,7 @@ extern "C" void app_main(void) {
     xTaskCreate(send_task, "send_task", 4096, nullptr, 4, nullptr);
     
     ESP_LOGI(TAG, "System initialized. Audio data will be sent via USB Serial/JTAG continuously.");
-    ESP_LOGI(TAG, "Data format: Vofa+ FireWater format (one float per line, normalized -1.0 to 1.0)");
+    ESP_LOGI(TAG, "Data format: Vofa+ FireWater format (one int16_t value per line, range: -32768 to 32767)");
     ESP_LOGI(TAG, "Vofa+ settings: Protocol=FireWater, Channels=1, Sample Rate=%d Hz", 
              codec.input_sample_rate());
     

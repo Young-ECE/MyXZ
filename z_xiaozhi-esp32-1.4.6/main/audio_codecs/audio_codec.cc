@@ -34,35 +34,6 @@ bool AudioCodec::InputData(std::vector<int16_t>& data) {
     data.resize(input_frame_size);
     int samples = Read(data.data(), data.size());
     if (samples > 0) {
-        // ===== 添加调试代码 =====
-        static int frame_count = 0;
-        frame_count++;
-        
-        // 每隔33帧(约1秒)输出一次数据分析
-        if (frame_count % 33 == 0) {
-            // 计算RMS值
-            float rms = 0.0f;
-            int16_t max_val = INT16_MIN, min_val = INT16_MAX;
-            
-            for (int i = 0; i < samples; i++) {
-                rms += (float)data[i] * data[i];
-                if (data[i] > max_val) max_val = data[i];
-                if (data[i] < min_val) min_val = data[i];
-            }
-            rms = sqrtf(rms / samples);
-            
-            ESP_LOGI("AudioDebug", "Frame %d: Samples=%d, RMS=%.1f, Range=[%d,%d]", 
-                     frame_count, samples, rms, min_val, max_val);
-            
-            // 输出前10个原始采样值
-            printf("Raw samples: ");
-            for (int i = 0; i < 10 && i < samples; i++) {
-                printf("%d ", data[i]);
-            }
-            printf("\n");
-        }
-        // ===== 调试代码结束 =====
-        
         return true;
     }
     return false;

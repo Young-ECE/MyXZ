@@ -28,7 +28,7 @@ bool AudioCodec::InputData(std::vector<int16_t>& data){
 
     data.resize(input_frame_size);
     int samples = Read(data.data(), data.size());
-    if(samples > 0){
+    if(samples > 0){        
         data.resize(samples);
         return true;
     }
