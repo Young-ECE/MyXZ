@@ -27,11 +27,12 @@ bool AudioCodec::InputData(std::vector<int16_t>& data){
     int input_frame_size = input_sample_rate_ / 1000 * duration * input_channels_;
 
     data.resize(input_frame_size);
-    int samples = Read(data.data(),data.size());
+    int samples = Read(data.data(), data.size());
     if(samples > 0){
         data.resize(samples);
         return true;
     }
+    data.clear();  // 如果读取失败，清空数据
     return false;
 }
 

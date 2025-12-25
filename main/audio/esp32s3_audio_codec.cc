@@ -123,9 +123,31 @@ int Esp32S3AudioCodec::Read(int16_t* dest, int samples) {
 
     samples = bytes_read / sizeof(int32_t);
     
-    // 将32位数据转换为16位（右移12位）
+    // 对于24位I2S麦克风（如INMP441），数据在32位容器中的布局：
+    // 24位有效数据通常在高24位（bit[31:8]），低8位为0
+    // 需要右移8位将24位数据转换为16位
+    // 注意：原项目使用>>12可能是针对特定格式，但我们使用>>8更适合24位麦克风
+    
+    // 添加调试：每100帧打印一次原始数据（用于分析24位麦克风数据）
+    static int debug_frame_count = 0;
+    debug_frame_count++;
+    if (debug_frame_count % 100 == 0 && samples > 0) {
+        ESP_LOGI(TAG, "=== Raw I2S Data Debug (Frame %d) ===", debug_frame_count);
+        ESP_LOGI(TAG, "Samples read: %d", samples);
+        // 打印前5个原始32位值
+        for (int i = 0; i < 5 && i < samples; i++) {
+            int32_t raw = bit32_buffer[i];
+            int32_t val_8 = raw >> 8;   // 24位转16位（正确方式）
+            int32_t val_12 = raw >> 12; // 原项目的做法
+            ESP_LOGI(TAG, "Raw[%d]: 0x%08lx (%ld) -> >>8:%d >>12:%d", 
+                     i, (unsigned long)raw, (long)raw, (int)val_8, (int)val_12);
+        }
+    }
+    
+    // 将32位数据转换为16位（24位麦克风：右移8位）
     for (int i = 0; i < samples; i++) {
-        int32_t value = bit32_buffer[i] >> 12;
+        // 先右移8位（24位到16位），然后再限制范围
+        int32_t value = bit32_buffer[i] >> 8;
         dest[i] = (value > INT16_MAX) ? INT16_MAX : 
                   (value < INT16_MIN) ? INT16_MIN : 
                   (int16_t)value;
