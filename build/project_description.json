@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "my_xiaozhi",
-    "project_version":    "f38ce6f-dirty",
+    "project_version":    "7c3dbda-dirty",
     "project_path":       "/home/young/Desktop/xiaozhi",
     "idf_path":           "/home/young/esp/esp-idf",
     "build_dir":          "/home/young/Desktop/xiaozhi/build",
